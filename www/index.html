@@ -116,3 +116,65 @@ camera.updateProjectionMatrix();
 camera.position.lerp(target,1-Math.pow(.001,dt));camera.lookAt(look);renderer.render(scene,camera)}animate();
 addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight);renderer.setPixelRatio(Math.min(devicePixelRatio,1.7))});
 </script></body></html>
+(1.65,.72,3.25),mat(color,.48,.18));
+  body.position.y=.78;g.add(body);
+  const cabin=new THREE.Mesh(new THREE.BoxGeometry(1.42,.68,1.45),glass);
+  cabin.position.set(0,1.42,-.15);g.add(cabin);
+  for(const x of [-.86,.86])for(const zz of [-1,1]){
+    const tw=new THREE.Mesh(new THREE.CylinderGeometry(.25,.25,.16,12),rubber);
+    tw.rotation.z=Math.PI/2;tw.position.set(x,.43,zz);g.add(tw);
+  }
+  g.position.set(lane,0,z);scene.add(g);traffic.push({group:g,speed:10+Math.random()*7});
+}
+for(let i=0;i<7;i++)makeTraffic(20-i*72, i%2===0?3.7:-3.7, [0xb83b32,0xd8d9d5,0x355d8a,0xc5a34b][i%4]);
+
+// destination gate and marker
+const marker=new THREE.Group();scene.add(marker);marker.position.set(0,0,-475);const arch=new THREE.Mesh(new THREE.BoxGeometry(13,.35,.35),mat(0x45dc9a,.35,.2));arch.position.y=6;marker.add(arch);for(let x of [-6.3,6.3]){let p=new THREE.Mesh(new THREE.BoxGeometry(.35,6,.35),mat(0x45dc9a));p.position.set(x,3,0);marker.add(p)}
+let speed=0,steer=0,steerAngle=0,throttle=0,braking=false,reverse=false,camMode=1,cash=2500,delivered=false,lightsOn=false,manual=false,manualGear=1,fuel=82;const startZ=65;const ui={speed:document.querySelector('#speed'),gear:document.querySelector('#gear'),cash:document.querySelector('#cash'),fuel:document.querySelector('#fuel'),distance:document.querySelector('#distance'),progress:document.querySelector('#progress'),hint:document.querySelector('#hint')};
+function hold(id,down,up){
+  const e=document.getElementById(id);
+  const release=()=>{up();e.classList.remove('active')};
+  e.addEventListener('pointerdown',ev=>{
+    ev.preventDefault();
+    if(e.setPointerCapture) e.setPointerCapture(ev.pointerId);
+    down();e.classList.add('active');
+  });
+  e.addEventListener('pointerup',release);
+  e.addEventListener('pointercancel',release);
+  e.addEventListener('lostpointercapture',release);
+}hold('left',()=>steer=-1,()=>{if(steer<0)steer=0});hold('right',()=>steer=1,()=>{if(steer>0)steer=0});hold('gas',()=>throttle=1,()=>throttle=0);hold('brake',()=>braking=true,()=>braking=false);
+document.querySelector('#reverse').onclick=()=>{reverse=!reverse;ui.hint.textContent=reverse?'Reverse selected':'Drive selected'};
+document.querySelector('#transmission').onclick=()=>{manual=!manual;document.querySelector('#transmission').textContent=manual?'MANUAL':'AUTO';ui.hint.textContent=manual?'Manual gearbox enabled · use G− / G+':'Automatic gearbox enabled'};
+document.querySelector('#gearDown').onclick=()=>{manualGear=Math.max(1,manualGear-1)};
+document.querySelector('#gearUp').onclick=()=>{manualGear=Math.min(12,manualGear+1)};document.querySelector('#camera').onclick=()=>camMode=(camMode+1)%3;document.querySelector('#lights').onclick=()=>{lightsOn=!lightsOn;sun.intensity=lightsOn?0.45:2.4;scene.background.set(lightsOn?0x17263b:0x9bc4dc);scene.fog.color.set(lightsOn?0x17263b:0x9bc4dc);document.querySelector('#lights').textContent=lightsOn?'LIGHTS ON':'LIGHTS'};document.querySelector('#reset').onclick=()=>{truck.position.set(0,0,startZ);truck.rotation.y=Math.PI;speed=0;steer=0;delivered=false;ui.hint.textContent='Truck reset · Deliver the cargo to the green marker'};
+const clock=new THREE.Clock();function animate(){requestAnimationFrame(animate);let dt=Math.min(clock.getDelta(),.04);let accel=reverse? -1:1;let gearLimit=manual?Math.min(42,manualGear*4.2):42;if(throttle && fuel>0)speed+=accel*(manual?(5.5+manualGear*.48):10)*dt;else speed*=Math.pow(.985,dt*60);if(braking)speed*=Math.pow(.90,dt*60);speed=THREE.MathUtils.clamp(speed,-22,gearLimit);if(Math.abs(speed)<.08)speed=0;if(throttle&&Math.abs(speed)>0.2)fuel=Math.max(0,fuel-dt*(.018+Math.abs(speed)*.0009));ui.fuel.textContent=Math.floor(fuel);if(fuel<=0){throttle=0;ui.hint.textContent='OUT OF FUEL · Find a fuel station (refuel feature coming soon)'};
+steerAngle=THREE.MathUtils.damp(steerAngle,steer,steer!==0?8:4.5,dt);
+wheelGroup.rotation.z=-steerAngle*.78;
+const speedFactor=THREE.MathUtils.clamp(Math.abs(speed)/12,0,1);
+const travelDirection=speed>=0?1:-1;
+truck.rotation.y+=-steerAngle*travelDirection*speedFactor*dt*.78;
+const move=speed*dt*.22;
+truck.position.x+=Math.sin(truck.rotation.y)*move;
+truck.position.z+=Math.cos(truck.rotation.y)*move;
+wheels.forEach(w=>w.rotation.x+=speed*dt*.6);traffic.forEach(v=>{v.group.position.z+=v.speed*dt;if(v.group.position.z>truck.position.z+95)v.group.position.z=truck.position.z-430;});
+let dist=Math.max(0,(truck.position.z-marker.position.z)*.012);ui.speed.textContent=Math.round(Math.abs(speed)*3.6);ui.gear.textContent=reverse?'R':(speed===0?'N':((manual?manualGear:Math.min(12,Math.max(1,Math.ceil(speed/4))))+''));ui.distance.textContent=dist.toFixed(1);let pct=THREE.MathUtils.clamp((startZ-truck.position.z)/(startZ-marker.position.z),0,1);ui.progress.style.width=(pct*100)+'%';
+if(!delivered&&truck.position.z<=marker.position.z+4){delivered=true;cash+=850;ui.cash.textContent='$'+cash.toLocaleString();ui.hint.textContent='DELIVERY COMPLETE · +$850 · Contract delivered!';}
+let target,look;
+if(camMode===0){
+  cabBody.visible=true;roof.visible=true;windshield.visible=true;camera.fov=65;
+  target=new THREE.Vector3(truck.position.x,5.4,truck.position.z+11);
+  look=new THREE.Vector3(truck.position.x,1.8,truck.position.z-8);
+}else if(camMode===1){
+  // Driver eye position: inside the cab, looking through the front windshield.
+  cabBody.visible=false;roof.visible=false;windshield.visible=true;camera.fov=78;
+  target=truck.localToWorld(new THREE.Vector3(-.42,2.34,.72));
+  look=truck.localToWorld(new THREE.Vector3(-.34,2.15,28));
+}else{
+  cabBody.visible=true;roof.visible=true;windshield.visible=true;camera.fov=65;
+  target=new THREE.Vector3(truck.position.x+8,4.5,truck.position.z+5);
+  look=new THREE.Vector3(truck.position.x,1.5,truck.position.z-5);
+}
+camera.updateProjectionMatrix();
+camera.position.lerp(target,1-Math.pow(.001,dt));camera.lookAt(look);renderer.render(scene,camera)}animate();
+addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight);renderer.setPixelRatio(Math.min(devicePixelRatio,1.7))});
+</script></body></html>
