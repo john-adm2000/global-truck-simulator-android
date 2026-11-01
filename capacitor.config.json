@@ -1,0 +1,11 @@
+{
+  "appId": "com.globaltrucks.simulator",
+  "appName": "Global Truck Simulator",
+  "webDir": "www",
+  "server": {
+    "androidScheme": "https"
+  },
+  "android": {
+    "allowMixedContent": false
+  }
+}
